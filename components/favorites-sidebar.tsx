@@ -1,11 +1,12 @@
 "use client"
 
-import { Heart, Trash2 } from "lucide-react"
+import { Heart, Trash2, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
-import { fragrances as allFragrances, type Fragrance } from "@/lib/fragrance-data"
+import { useFragrancesByIds } from "@/lib/api"
+import type { Fragrance } from "@/lib/types"
 import { useFragranceStore } from "@/lib/fragrance-store"
 import { FragranceCard } from "./fragrance-card"
 
@@ -15,10 +16,7 @@ interface FavoritesSidebarProps {
 
 export function FavoritesSidebar({ onSelectFragrance }: FavoritesSidebarProps) {
   const { favorites, removeFavorite } = useFragranceStore()
-
-  const favoriteFragrances = favorites
-    .map((id) => allFragrances.find((f) => f.id === id))
-    .filter(Boolean) as Fragrance[]
+  const { fragrances: favoriteFragrances, isLoading } = useFragrancesByIds(favorites)
 
   return (
     <Sheet>
@@ -38,14 +36,18 @@ export function FavoritesSidebar({ onSelectFragrance }: FavoritesSidebarProps) {
             Your Favorites
           </SheetTitle>
           <SheetDescription>
-            {favoriteFragrances.length === 0
+            {favorites.length === 0
               ? "Save fragrances you love to build your collection"
-              : `${favoriteFragrances.length} fragrances saved`}
+              : `${favorites.length} fragrances saved`}
           </SheetDescription>
         </SheetHeader>
 
         <ScrollArea className="mt-6 h-[calc(100vh-180px)]">
-          {favoriteFragrances.length === 0 ? (
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : favoriteFragrances.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Heart className="mb-4 h-12 w-12 text-muted-foreground/50" />
               <p className="text-muted-foreground">

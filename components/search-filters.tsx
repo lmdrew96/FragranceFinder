@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { Search, SlidersHorizontal, X, ChevronDown } from "lucide-react"
 import { Input } from "@/components/ui/input"
@@ -14,14 +13,14 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
-import { scentFamilies, allBrands, allNotes } from "@/lib/fragrance-data"
+import { scentFamilies } from "@/lib/types"
+import { useFilters } from "@/lib/api"
 
 export interface Filters {
   search: string
   scentFamilies: string[]
   brands: string[]
   gender: string[]
-  concentration: string[]
   priceRange: string[]
   notes: string[]
   occasions: string[]
@@ -38,8 +37,22 @@ interface SearchFiltersProps {
   resultCount: number
 }
 
+function FilterSection({ title, children }: { title: string; children: React.ReactNode }) {
+  const [isOpen, setIsOpen] = useState(true)
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="space-y-2">
+      <CollapsibleTrigger className="flex w-full items-center justify-between py-2">
+        <span className="text-sm font-semibold">{title}</span>
+        <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="space-y-2">{children}</CollapsibleContent>
+    </Collapsible>
+  )
+}
+
 export function SearchFilters({ filters, onFiltersChange, resultCount }: SearchFiltersProps) {
   const [isOpen, setIsOpen] = useState(false)
+  const { filters: apiFilters } = useFilters()
 
   const updateFilter = <K extends keyof Filters>(key: K, value: Filters[K]) => {
     onFiltersChange({ ...filters, [key]: value })
@@ -57,7 +70,6 @@ export function SearchFilters({ filters, onFiltersChange, resultCount }: SearchF
       scentFamilies: [],
       brands: [],
       gender: [],
-      concentration: [],
       priceRange: [],
       notes: [],
       occasions: [],
@@ -73,7 +85,6 @@ export function SearchFilters({ filters, onFiltersChange, resultCount }: SearchF
     filters.scentFamilies.length,
     filters.brands.length,
     filters.gender.length,
-    filters.concentration.length,
     filters.priceRange.length,
     filters.notes.length,
     filters.occasions.length,
@@ -82,6 +93,14 @@ export function SearchFilters({ filters, onFiltersChange, resultCount }: SearchF
     filters.sillageMin > 0 ? 1 : 0,
     filters.ratingMin > 0 ? 1 : 0,
   ].reduce((a, b) => a + b, 0)
+
+  // Use API filter data if available, otherwise fallbacks
+  const brands = apiFilters?.brands ?? []
+  const notes = apiFilters?.notes ?? []
+  const occasions = apiFilters?.occasions ?? ["Casual", "Daily Wear", "Date Night", "Evening Out", "Formal", "Office", "Special Occasion"]
+  const seasons = apiFilters?.seasons ?? ["spring", "summer", "fall", "winter"]
+  const genders = ["masculine", "feminine", "unisex"]
+  const priceRanges = ["$", "$$", "$$$", "$$$$"]
 
   return (
     <div className="space-y-4">
@@ -150,33 +169,20 @@ export function SearchFilters({ filters, onFiltersChange, resultCount }: SearchF
 
               {/* Gender */}
               <FilterSection title="Gender">
-                <div className="flex gap-2">
-                  {["masculine", "feminine", "unisex"].map((g) => (
-                    <Button
-                      key={g}
-                      variant={filters.gender.includes(g) ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => toggleArrayFilter("gender", g)}
-                      className="capitalize"
-                    >
-                      {g}
-                    </Button>
-                  ))}
-                </div>
-              </FilterSection>
-
-              {/* Concentration */}
-              <FilterSection title="Concentration">
                 <div className="flex flex-wrap gap-2">
-                  {["EDT", "EDP", "Parfum", "Cologne", "Intense"].map((c) => (
-                    <Button
-                      key={c}
-                      variant={filters.concentration.includes(c) ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => toggleArrayFilter("concentration", c)}
+                  {genders.map((gender) => (
+                    <button
+                      key={gender}
+                      onClick={() => toggleArrayFilter("gender", gender)}
+                      className={cn(
+                        "rounded-full px-3 py-1.5 text-sm font-medium capitalize transition-all",
+                        filters.gender.includes(gender)
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+                      )}
                     >
-                      {c}
-                    </Button>
+                      {gender}
+                    </button>
                   ))}
                 </div>
               </FilterSection>
@@ -184,122 +190,99 @@ export function SearchFilters({ filters, onFiltersChange, resultCount }: SearchF
               {/* Price Range */}
               <FilterSection title="Price Range">
                 <div className="flex gap-2">
-                  {["$", "$$", "$$$", "$$$$"].map((p) => (
-                    <Button
-                      key={p}
-                      variant={filters.priceRange.includes(p) ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => toggleArrayFilter("priceRange", p)}
+                  {priceRanges.map((price) => (
+                    <button
+                      key={price}
+                      onClick={() => toggleArrayFilter("priceRange", price)}
+                      className={cn(
+                        "flex-1 rounded-lg py-2 text-sm font-semibold transition-all",
+                        filters.priceRange.includes(price)
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+                      )}
                     >
-                      {p}
-                    </Button>
+                      {price}
+                    </button>
                   ))}
                 </div>
               </FilterSection>
 
               {/* Seasons */}
-              <FilterSection title="Season">
+              <FilterSection title="Seasons">
                 <div className="flex gap-2">
-                  {["spring", "summer", "fall", "winter"].map((s) => (
-                    <Button
-                      key={s}
-                      variant={filters.seasons.includes(s) ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => toggleArrayFilter("seasons", s)}
-                      className="capitalize"
+                  {seasons.map((season) => (
+                    <button
+                      key={season}
+                      onClick={() => toggleArrayFilter("seasons", season)}
+                      className={cn(
+                        "flex-1 rounded-lg py-2 text-sm font-medium capitalize transition-all",
+                        filters.seasons.includes(season)
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+                      )}
                     >
-                      {s}
-                    </Button>
+                      {season}
+                    </button>
                   ))}
                 </div>
               </FilterSection>
 
-              {/* Longevity */}
-              <FilterSection title={`Minimum Longevity: ${filters.longevityMin}/10`}>
-                <Slider
-                  value={[filters.longevityMin]}
-                  onValueChange={([v]) => updateFilter("longevityMin", v)}
-                  max={10}
-                  step={1}
-                  className="py-2"
-                />
-              </FilterSection>
-
-              {/* Sillage */}
-              <FilterSection title={`Minimum Sillage: ${filters.sillageMin}/10`}>
-                <Slider
-                  value={[filters.sillageMin]}
-                  onValueChange={([v]) => updateFilter("sillageMin", v)}
-                  max={10}
-                  step={1}
-                  className="py-2"
-                />
+              {/* Occasions */}
+              <FilterSection title="Occasions">
+                <div className="flex flex-wrap gap-2">
+                  {occasions.map((occasion) => (
+                    <button
+                      key={occasion}
+                      onClick={() => toggleArrayFilter("occasions", occasion)}
+                      className={cn(
+                        "rounded-full px-3 py-1.5 text-sm font-medium transition-all",
+                        filters.occasions.includes(occasion)
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+                      )}
+                    >
+                      {occasion}
+                    </button>
+                  ))}
+                </div>
               </FilterSection>
 
               {/* Rating */}
-              <FilterSection title={`Minimum Rating: ${filters.ratingMin.toFixed(1)}`}>
-                <Slider
-                  value={[filters.ratingMin]}
-                  onValueChange={([v]) => updateFilter("ratingMin", v)}
-                  max={5}
-                  step={0.5}
-                  className="py-2"
-                />
+              <FilterSection title="Minimum Rating">
+                <div className="px-2">
+                  <Slider
+                    value={[filters.ratingMin]}
+                    onValueChange={([v]) => updateFilter("ratingMin", v)}
+                    min={0}
+                    max={5}
+                    step={0.5}
+                    className="py-4"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Any</span>
+                    <span>{filters.ratingMin > 0 ? `${filters.ratingMin}+ stars` : "All ratings"}</span>
+                  </div>
+                </div>
               </FilterSection>
 
-              {/* Brands */}
-              <Collapsible>
-                <CollapsibleTrigger className="flex w-full items-center justify-between py-2 font-semibold">
-                  Brands ({filters.brands.length} selected)
-                  <ChevronDown className="h-4 w-4" />
-                </CollapsibleTrigger>
-                <CollapsibleContent className="pt-2">
-                  <div className="max-h-48 space-y-2 overflow-y-auto">
-                    {allBrands.map((brand) => (
-                      <div key={brand} className="flex items-center gap-2">
-                        <Checkbox
-                          id={`brand-${brand}`}
-                          checked={filters.brands.includes(brand)}
-                          onCheckedChange={() => toggleArrayFilter("brands", brand)}
-                        />
-                        <Label htmlFor={`brand-${brand}`} className="text-sm">
-                          {brand}
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
+              {/* Brands - collapsible list */}
+              <FilterSection title="Brands">
+                <div className="max-h-48 space-y-2 overflow-y-auto">
+                  {brands.slice(0, 50).map((brand) => (
+                    <label key={brand} className="flex items-center gap-2">
+                      <Checkbox
+                        checked={filters.brands.includes(brand)}
+                        onCheckedChange={() => toggleArrayFilter("brands", brand)}
+                      />
+                      <span className="text-sm">{brand}</span>
+                    </label>
+                  ))}
+                </div>
+              </FilterSection>
 
-              {/* Notes */}
-              <Collapsible>
-                <CollapsibleTrigger className="flex w-full items-center justify-between py-2 font-semibold">
-                  Notes ({filters.notes.length} selected)
-                  <ChevronDown className="h-4 w-4" />
-                </CollapsibleTrigger>
-                <CollapsibleContent className="pt-2">
-                  <div className="flex max-h-48 flex-wrap gap-1.5 overflow-y-auto">
-                    {allNotes.map((note) => (
-                      <button
-                        key={note}
-                        onClick={() => toggleArrayFilter("notes", note)}
-                        className={cn(
-                          "rounded-full px-2.5 py-1 text-xs font-medium transition-all",
-                          filters.notes.includes(note)
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-                        )}
-                      >
-                        {note}
-                      </button>
-                    ))}
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-
-              {/* Clear All */}
+              {/* Clear Filters */}
               {activeFilterCount > 0 && (
-                <Button variant="outline" className="w-full bg-transparent" onClick={clearFilters}>
+                <Button variant="outline" className="w-full" onClick={clearFilters}>
                   <X className="mr-2 h-4 w-4" />
                   Clear All Filters
                 </Button>
@@ -309,7 +292,7 @@ export function SearchFilters({ filters, onFiltersChange, resultCount }: SearchF
         </Sheet>
       </div>
 
-      {/* Active filters display */}
+      {/* Active Filters Display */}
       {activeFilterCount > 0 && (
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm text-muted-foreground">Active filters:</span>
@@ -319,39 +302,44 @@ export function SearchFilters({ filters, onFiltersChange, resultCount }: SearchF
               <X className="h-3 w-3 cursor-pointer" onClick={() => toggleArrayFilter("scentFamilies", f)} />
             </Badge>
           ))}
-          {filters.brands.map((b) => (
-            <Badge key={b} variant="secondary" className="gap-1">
-              {b}
-              <X className="h-3 w-3 cursor-pointer" onClick={() => toggleArrayFilter("brands", b)} />
-            </Badge>
-          ))}
           {filters.gender.map((g) => (
             <Badge key={g} variant="secondary" className="gap-1 capitalize">
               {g}
               <X className="h-3 w-3 cursor-pointer" onClick={() => toggleArrayFilter("gender", g)} />
             </Badge>
           ))}
-          {filters.notes.slice(0, 5).map((n) => (
-            <Badge key={n} variant="secondary" className="gap-1">
-              {n}
-              <X className="h-3 w-3 cursor-pointer" onClick={() => toggleArrayFilter("notes", n)} />
+          {filters.priceRange.map((p) => (
+            <Badge key={p} variant="secondary" className="gap-1">
+              {p}
+              <X className="h-3 w-3 cursor-pointer" onClick={() => toggleArrayFilter("priceRange", p)} />
             </Badge>
           ))}
-          {filters.notes.length > 5 && <Badge variant="secondary">+{filters.notes.length - 5} more</Badge>}
-          <Button variant="ghost" size="sm" onClick={clearFilters} className="h-6 text-xs">
-            Clear all
-          </Button>
+          {filters.brands.map((b) => (
+            <Badge key={b} variant="secondary" className="gap-1">
+              {b}
+              <X className="h-3 w-3 cursor-pointer" onClick={() => toggleArrayFilter("brands", b)} />
+            </Badge>
+          ))}
+          {filters.seasons.map((s) => (
+            <Badge key={s} variant="secondary" className="gap-1 capitalize">
+              {s}
+              <X className="h-3 w-3 cursor-pointer" onClick={() => toggleArrayFilter("seasons", s)} />
+            </Badge>
+          ))}
+          {filters.occasions.map((o) => (
+            <Badge key={o} variant="secondary" className="gap-1">
+              {o}
+              <X className="h-3 w-3 cursor-pointer" onClick={() => toggleArrayFilter("occasions", o)} />
+            </Badge>
+          ))}
+          {filters.ratingMin > 0 && (
+            <Badge variant="secondary" className="gap-1">
+              {filters.ratingMin}+ stars
+              <X className="h-3 w-3 cursor-pointer" onClick={() => updateFilter("ratingMin", 0)} />
+            </Badge>
+          )}
         </div>
       )}
-    </div>
-  )
-}
-
-function FilterSection({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-3">
-      <h4 className="font-semibold">{title}</h4>
-      {children}
     </div>
   )
 }

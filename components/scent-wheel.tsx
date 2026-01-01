@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { cn } from "@/lib/utils"
-import { scentFamilies } from "@/lib/fragrance-data"
+import { scentFamilies } from "@/lib/types"
 
 interface ScentWheelProps {
   selectedFamily?: string
@@ -102,21 +102,15 @@ export function ScentWheel({ selectedFamily, onSelect, size = "md", showLabels =
               </g>
             )
           })}
-
           {/* Center circle */}
-          <circle cx="100" cy="100" r="35" fill="white" stroke="#e5e5e5" strokeWidth="1" />
-          <text
-            x="100"
-            y="100"
-            textAnchor="middle"
-            dominantBaseline="middle"
-            className="fill-muted-foreground text-[7px] font-medium"
-          >
-            {hoveredFamily || selectedFamily || "Select"}
+          <circle cx="100" cy="100" r="38" fill="white" className="drop-shadow" />
+          <text x="100" y="100" textAnchor="middle" dominantBaseline="middle" className="fill-muted-foreground text-[10px] font-medium">
+            {selectedFamily || "Select"}
           </text>
         </svg>
       </div>
 
+      {/* Legend */}
       {showLabels && (
         <div className="flex flex-wrap justify-center gap-2">
           {scentFamilies.map((family) => (
@@ -124,8 +118,10 @@ export function ScentWheel({ selectedFamily, onSelect, size = "md", showLabels =
               key={family.name}
               onClick={() => onSelect?.(family.name)}
               className={cn(
-                "flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-all",
-                selectedFamily === family.name ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80",
+                "flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-medium transition-all",
+                selectedFamily === family.name
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80",
               )}
             >
               <span className="h-2 w-2 rounded-full" style={{ backgroundColor: family.color }} />

@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import type { Fragrance } from "@/lib/fragrance-data"
+import type { Fragrance } from "@/lib/types"
 import { useFragranceStore } from "@/lib/fragrance-store"
 
 interface FragranceCardProps {
@@ -28,6 +28,7 @@ const scentFamilyColors: Record<string, { bg: string; accent: string }> = {
   Powdery: { bg: "from-violet-50 to-violet-100", accent: "bg-violet-200" },
   Musky: { bg: "from-neutral-100 to-neutral-200", accent: "bg-neutral-300" },
   Spicy: { bg: "from-red-50 to-red-100", accent: "bg-red-200" },
+  Chypre: { bg: "from-emerald-50 to-emerald-100", accent: "bg-emerald-200" },
 }
 
 export function FragranceCard({ fragrance, onClick, variant = "default" }: FragranceCardProps) {
@@ -62,7 +63,7 @@ export function FragranceCard({ fragrance, onClick, variant = "default" }: Fragr
           </div>
           <div className="flex items-center gap-1 text-xs">
             <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-            {fragrance.rating.toFixed(1)}
+            {fragrance.rating?.toFixed(1) ?? "N/A"}
           </div>
         </CardContent>
       </Card>
@@ -131,8 +132,8 @@ export function FragranceCard({ fragrance, onClick, variant = "default" }: Fragr
         <div className="mb-3 flex items-center gap-4 text-sm text-muted-foreground">
           <div className="flex items-center gap-1">
             <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-            <span className="font-medium text-foreground">{fragrance.rating.toFixed(1)}</span>
-            <span>({fragrance.reviewCount.toLocaleString()})</span>
+            <span className="font-medium text-foreground">{fragrance.rating?.toFixed(1) ?? "N/A"}</span>
+            <span>({fragrance.reviewCount?.toLocaleString() ?? 0})</span>
           </div>
           <span className="font-semibold text-primary">{fragrance.priceRange}</span>
         </div>
@@ -149,21 +150,23 @@ export function FragranceCard({ fragrance, onClick, variant = "default" }: Fragr
           </div>
         </div>
 
+        {/* Performance indicators */}
         <div className="flex items-center gap-4 text-xs text-muted-foreground">
           <div className="flex items-center gap-1">
             <Droplets className="h-3 w-3" />
-            <span>Longevity: {fragrance.longevity}/10</span>
+            <span>{fragrance.longevity ?? "?"}/10</span>
           </div>
           <div className="flex items-center gap-1">
             <Wind className="h-3 w-3" />
-            <span>Sillage: {fragrance.sillage}/10</span>
+            <span>{fragrance.sillage ?? "?"}/10</span>
           </div>
-        </div>
-
-        <div className="mt-3 flex items-center gap-2">
-          <Badge variant="outline" className="text-xs">
-            {fragrance.concentration}
-          </Badge>
+          <div className="flex gap-1">
+            {fragrance.seasons?.slice(0, 2).map((season) => (
+              <span key={season} className="capitalize">
+                {season === "spring" ? "🌸" : season === "summer" ? "☀️" : season === "fall" ? "🍂" : "❄️"}
+              </span>
+            ))}
+          </div>
         </div>
       </CardContent>
     </Card>

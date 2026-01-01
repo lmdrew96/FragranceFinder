@@ -1,11 +1,12 @@
 "use client"
 
-import { useState, useMemo } from "react"
-import { Sparkles, Heart, TrendingUp, Clock, Shuffle } from "lucide-react"
+import { useMemo } from "react"
+import { Sparkles, Heart, TrendingUp, Clock, Shuffle, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { fragrances, scentFamilies, type Fragrance } from "@/lib/fragrance-data"
+import { useFragrances, useFragrancesByIds } from "@/lib/api"
+import { scentFamilies, type Fragrance } from "@/lib/types"
 import { useFragranceStore } from "@/lib/fragrance-store"
 import { FragranceCard } from "./fragrance-card"
 
@@ -15,13 +16,19 @@ interface DiscoverySectionProps {
 
 export function DiscoverySection({ onSelectFragrance }: DiscoverySectionProps) {
   const { favorites, recentlyViewed } = useFragranceStore()
-  const [randomSeed, setRandomSeed] = useState(Date.now())
-
-  // Get favorite fragrances
-  const favoriteFragrances = useMemo(
-    () => favorites.map((id) => fragrances.find((f) => f.id === id)).filter(Boolean) as Fragrance[],
-    [favorites],
-  )
+  
+  // Fetch favorite fragrances
+  const { fragrances: favoriteFragrances, isLoading: favoritesLoading } = useFragrancesByIds(favorites)
+  
+  // Fetch recently viewed fragrances
+  const { fragrances: recentFragrances, isLoading: recentLoading } = useFragrancesByIds(recentlyViewed)
+  
+  // Fetch trending (high rated)
+  const { fragrances: trendingFragrances, isLoading: trendingLoading } = useFragrances({
+    sortBy: "rating",
+    sortOrder: "desc",
+    limit: 8,
+  })
 
   // Analyze user preferences based on favorites
   const userPreferences = useMemo(() => {
@@ -29,11 +36,9 @@ export function DiscoverySection({ onSelectFragrance }: DiscoverySectionProps) {
 
     const familyCount: Record<string, number> = {}
     const noteCount: Record<string, number> = {}
-    const brandCount: Record<string, number> = {}
 
     favoriteFragrances.forEach((frag) => {
       familyCount[frag.scentFamily] = (familyCount[frag.scentFamily] || 0) + 1
-      brandCount[frag.brand] = (brandCount[frag.brand] || 0) + 1
       ;[...frag.notes.top, ...frag.notes.middle, ...frag.notes.base].forEach((note) => {
         noteCount[note] = (noteCount[note] || 0) + 1
       })
@@ -49,55 +54,23 @@ export function DiscoverySection({ onSelectFragrance }: DiscoverySectionProps) {
       .slice(0, 5)
       .map(([n]) => n)
 
-    return { topFamilies, topNotes, familyCount, noteCount }
+    return { topFamilies, topNotes }
   }, [favoriteFragrances])
 
-  // Generate recommendations based on favorites
-  const recommendations = useMemo(() => {
-    if (!userPreferences) {
-      // Random recommendations for new users
-      return fragrances.sort(() => Math.random() - 0.5).slice(0, 8)
-    }
-
-    const scored = fragrances
-      .filter((f) => !favorites.includes(f.id))
-      .map((frag) => {
-        let score = 0
-
-        // Family match
-        if (userPreferences.topFamilies.includes(frag.scentFamily)) {
-          score += 10
-        }
-
-        // Note matches
-        const allNotes = [...frag.notes.top, ...frag.notes.middle, ...frag.notes.base]
-        allNotes.forEach((note) => {
-          if (userPreferences.topNotes.includes(note)) {
-            score += 2
-          }
-        })
-
-        // Rating bonus
-        score += frag.rating
-
-        return { fragrance: frag, score }
-      })
-      .sort((a, b) => b.score - a.score)
-
-    return scored.slice(0, 8).map((s) => s.fragrance)
-  }, [userPreferences, favorites, randomSeed])
-
-  // Trending fragrances (high rating + high review count)
-  const trending = useMemo(
-    () => fragrances.sort((a, b) => b.rating * b.reviewCount - a.rating * a.reviewCount).slice(0, 8),
-    [],
+  // Get the top preferred family for recommendations
+  const recommendedFamily = userPreferences?.topFamilies[0]
+  
+  // Fetch recommendations based on preferences
+  const { fragrances: recommendations, isLoading: recommendationsLoading } = useFragrances(
+    recommendedFamily 
+      ? { scentFamily: recommendedFamily, sortBy: "rating", sortOrder: "desc", limit: 8 }
+      : { sortBy: "reviewCount", sortOrder: "desc", limit: 8 }
   )
 
-  // Recently viewed
-  const recent = useMemo(
-    () => recentlyViewed.map((id) => fragrances.find((f) => f.id === id)).filter(Boolean) as Fragrance[],
-    [recentlyViewed],
-  )
+  // Filter out favorites from recommendations
+  const filteredRecommendations = recommendations.filter(
+    (f) => !favorites.includes(f.id)
+  ).slice(0, 8)
 
   return (
     <div className="space-y-8">
@@ -152,50 +125,76 @@ export function DiscoverySection({ onSelectFragrance }: DiscoverySectionProps) {
       )}
 
       {/* Recommendations */}
-      <div>
+      <section>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="flex items-center gap-2 font-serif text-2xl font-bold">
-            <Sparkles className="h-6 w-6 text-primary" />
-            {userPreferences ? "Recommended For You" : "Discover New Fragrances"}
-          </h2>
-          <Button variant="outline" size="sm" onClick={() => setRandomSeed(Date.now())}>
-            <Shuffle className="mr-2 h-4 w-4" />
-            Refresh
-          </Button>
+          <h3 className="flex items-center gap-2 font-serif text-xl font-semibold">
+            <Sparkles className="h-5 w-5 text-primary" />
+            {userPreferences ? "Recommended For You" : "Popular Fragrances"}
+          </h3>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {recommendations.slice(0, 4).map((fragrance) => (
-            <FragranceCard key={fragrance.id} fragrance={fragrance} onClick={() => onSelectFragrance(fragrance)} />
-          ))}
-        </div>
-      </div>
-
-      {/* Trending */}
-      <div>
-        <h2 className="mb-4 flex items-center gap-2 font-serif text-2xl font-bold">
-          <TrendingUp className="h-6 w-6 text-primary" />
-          Trending Now
-        </h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {trending.slice(0, 4).map((fragrance) => (
-            <FragranceCard key={fragrance.id} fragrance={fragrance} onClick={() => onSelectFragrance(fragrance)} />
-          ))}
-        </div>
-      </div>
-
-      {/* Recently Viewed */}
-      {recent.length > 0 && (
-        <div>
-          <h2 className="mb-4 flex items-center gap-2 font-serif text-2xl font-bold">
-            <Clock className="h-6 w-6 text-primary" />
-            Recently Viewed
-          </h2>
+        {recommendationsLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {recent.slice(0, 4).map((fragrance) => (
-              <FragranceCard key={fragrance.id} fragrance={fragrance} onClick={() => onSelectFragrance(fragrance)} />
+            {filteredRecommendations.map((fragrance) => (
+              <FragranceCard
+                key={fragrance.id}
+                fragrance={fragrance}
+                onClick={() => onSelectFragrance(fragrance)}
+              />
             ))}
           </div>
+        )}
+      </section>
+
+      {/* Trending */}
+      <section>
+        <div className="mb-4 flex items-center gap-2">
+          <TrendingUp className="h-5 w-5 text-orange-500" />
+          <h3 className="font-serif text-xl font-semibold">Trending Now</h3>
         </div>
+        {trendingLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {trendingFragrances.map((fragrance) => (
+              <FragranceCard
+                key={fragrance.id}
+                fragrance={fragrance}
+                onClick={() => onSelectFragrance(fragrance)}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Recently Viewed */}
+      {recentlyViewed.length > 0 && (
+        <section>
+          <div className="mb-4 flex items-center gap-2">
+            <Clock className="h-5 w-5 text-blue-500" />
+            <h3 className="font-serif text-xl font-semibold">Recently Viewed</h3>
+          </div>
+          {recentLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {recentFragrances.slice(0, 4).map((fragrance) => (
+                <FragranceCard
+                  key={fragrance.id}
+                  fragrance={fragrance}
+                  onClick={() => onSelectFragrance(fragrance)}
+                />
+              ))}
+            </div>
+          )}
+        </section>
       )}
     </div>
   )

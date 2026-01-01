@@ -1,10 +1,11 @@
 "use client"
 
-import { useState, useMemo, useCallback } from "react"
-import { Search, Sparkles, Scale } from "lucide-react"
+import { useState, useCallback } from "react"
+import { Search, Sparkles, Scale, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { fragrances, type Fragrance } from "@/lib/fragrance-data"
+import { useInfiniteFragrances } from "@/lib/api"
+import type { Fragrance } from "@/lib/types"
 import { useFragranceStore } from "@/lib/fragrance-store"
 import { FragranceCard } from "@/components/fragrance-card"
 import { SearchFilters, type Filters } from "@/components/search-filters"
@@ -19,7 +20,6 @@ const initialFilters: Filters = {
   scentFamilies: [],
   brands: [],
   gender: [],
-  concentration: [],
   priceRange: [],
   notes: [],
   occasions: [],
@@ -28,6 +28,24 @@ const initialFilters: Filters = {
   sillageMin: 0,
   ratingMin: 0,
   sortBy: "popularity",
+}
+
+// Map UI sort options to API sort options
+function mapSortBy(sortBy: string): { sortBy: "rating" | "reviewCount" | "year" | "name"; sortOrder: "asc" | "desc" } {
+  switch (sortBy) {
+    case "rating":
+      return { sortBy: "rating", sortOrder: "desc" }
+    case "newest":
+      return { sortBy: "year", sortOrder: "desc" }
+    case "name":
+      return { sortBy: "name", sortOrder: "asc" }
+    case "price-low":
+    case "price-high":
+      // Price sorting would need to be handled differently since priceRange is categorical
+      return { sortBy: "rating", sortOrder: "desc" }
+    default: // popularity
+      return { sortBy: "reviewCount", sortOrder: "desc" }
+  }
 }
 
 export function FragranceFinder() {
@@ -39,102 +57,21 @@ export function FragranceFinder() {
 
   const { comparisonList, addToRecentlyViewed } = useFragranceStore()
 
-  // Filter and sort fragrances
-  const filteredFragrances = useMemo(() => {
-    let result = [...fragrances]
+  // Build API filters from UI filters
+  const apiFilters = {
+    search: filters.search || undefined,
+    gender: filters.gender.length === 1 ? filters.gender[0] : undefined,
+    priceRange: filters.priceRange.length === 1 ? filters.priceRange[0] : undefined,
+    scentFamily: filters.scentFamilies.length === 1 ? filters.scentFamilies[0] : undefined,
+    season: filters.seasons.length === 1 ? filters.seasons[0] : undefined,
+    occasion: filters.occasions.length === 1 ? filters.occasions[0] : undefined,
+    brand: filters.brands.length === 1 ? filters.brands[0] : undefined,
+    note: filters.notes.length === 1 ? filters.notes[0] : undefined,
+    minRating: filters.ratingMin > 0 ? filters.ratingMin : undefined,
+    ...mapSortBy(filters.sortBy),
+  }
 
-    // Search filter
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase()
-      result = result.filter(
-        (f) =>
-          f.name.toLowerCase().includes(searchLower) ||
-          f.brand.toLowerCase().includes(searchLower) ||
-          [...f.notes.top, ...f.notes.middle, ...f.notes.base].some((n) => n.toLowerCase().includes(searchLower)),
-      )
-    }
-
-    // Scent family filter
-    if (filters.scentFamilies.length > 0) {
-      result = result.filter((f) => filters.scentFamilies.includes(f.scentFamily))
-    }
-
-    // Brand filter
-    if (filters.brands.length > 0) {
-      result = result.filter((f) => filters.brands.includes(f.brand))
-    }
-
-    // Gender filter
-    if (filters.gender.length > 0) {
-      result = result.filter((f) => filters.gender.includes(f.gender))
-    }
-
-    // Concentration filter
-    if (filters.concentration.length > 0) {
-      result = result.filter((f) => filters.concentration.includes(f.concentration))
-    }
-
-    // Price range filter
-    if (filters.priceRange.length > 0) {
-      result = result.filter((f) => filters.priceRange.includes(f.priceRange))
-    }
-
-    // Notes filter
-    if (filters.notes.length > 0) {
-      result = result.filter((f) => {
-        const allNotes = [...f.notes.top, ...f.notes.middle, ...f.notes.base]
-        return filters.notes.some((note) => allNotes.includes(note))
-      })
-    }
-
-    // Occasions filter
-    if (filters.occasions.length > 0) {
-      result = result.filter((f) => filters.occasions.some((occ) => f.occasions.includes(occ)))
-    }
-
-    // Seasons filter
-    if (filters.seasons.length > 0) {
-      result = result.filter((f) => filters.seasons.some((season) => f.seasons.includes(season as any)))
-    }
-
-    // Longevity filter
-    if (filters.longevityMin > 0) {
-      result = result.filter((f) => f.longevity >= filters.longevityMin)
-    }
-
-    // Sillage filter
-    if (filters.sillageMin > 0) {
-      result = result.filter((f) => f.sillage >= filters.sillageMin)
-    }
-
-    // Rating filter
-    if (filters.ratingMin > 0) {
-      result = result.filter((f) => f.rating >= filters.ratingMin)
-    }
-
-    // Sort
-    switch (filters.sortBy) {
-      case "rating":
-        result.sort((a, b) => b.rating - a.rating)
-        break
-      case "newest":
-        result.sort((a, b) => b.year - a.year)
-        break
-      case "name":
-        result.sort((a, b) => a.name.localeCompare(b.name))
-        break
-      case "price-low":
-        result.sort((a, b) => a.priceRange.length - b.priceRange.length)
-        break
-      case "price-high":
-        result.sort((a, b) => b.priceRange.length - a.priceRange.length)
-        break
-      default: // popularity
-        result.sort((a, b) => b.reviewCount - a.reviewCount)
-    }
-
-    return result
-  }, [filters])
+  const { fragrances, total, hasMore, isLoading, isLoadingMore, loadMore } = useInfiniteFragrances(apiFilters, 24)
 
   const handleSelectFragrance = useCallback(
     (fragrance: Fragrance) => {
@@ -160,8 +97,6 @@ export function FragranceFinder() {
     })
     setActiveTab("browse")
   }, [])
-
-  const [displayCount, setDisplayCount] = useState(24)
 
   return (
     <div className="min-h-screen bg-background">
@@ -197,7 +132,7 @@ export function FragranceFinder() {
         <section className="mb-12 text-center">
           <h2 className="font-serif text-4xl font-bold tracking-tight md:text-5xl">Discover Your Perfect Scent</h2>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-muted-foreground">
-            Explore over 1,500 fragrances. Compare notes, find your scent family, and discover perfumes tailored to your
+            Explore over 13,000 fragrances. Compare notes, find your scent family, and discover perfumes tailored to your
             preferences.
           </p>
         </section>
@@ -220,31 +155,54 @@ export function FragranceFinder() {
 
           {/* Browse Tab */}
           <TabsContent value="browse" className="space-y-6">
-            <SearchFilters filters={filters} onFiltersChange={setFilters} resultCount={filteredFragrances.length} />
+            <SearchFilters filters={filters} onFiltersChange={setFilters} resultCount={total} />
 
             <div className="flex items-center justify-between">
               <p className="text-sm text-muted-foreground">
-                Showing {Math.min(displayCount, filteredFragrances.length)} of{" "}
-                {filteredFragrances.length.toLocaleString()} fragrances
+                {isLoading ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading...
+                  </span>
+                ) : (
+                  <>
+                    Showing {fragrances.length.toLocaleString()} of {total.toLocaleString()} fragrances
+                  </>
+                )}
               </p>
             </div>
 
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {filteredFragrances.slice(0, displayCount).map((fragrance) => (
-                <FragranceCard
-                  key={fragrance.id}
-                  fragrance={fragrance}
-                  onClick={() => handleSelectFragrance(fragrance)}
-                />
-              ))}
-            </div>
-
-            {displayCount < filteredFragrances.length && (
-              <div className="flex justify-center pt-8">
-                <Button variant="outline" size="lg" onClick={() => setDisplayCount((prev) => prev + 24)}>
-                  Load More Fragrances
-                </Button>
+            {isLoading && fragrances.length === 0 ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               </div>
+            ) : (
+              <>
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {fragrances.map((fragrance) => (
+                    <FragranceCard
+                      key={fragrance.id}
+                      fragrance={fragrance}
+                      onClick={() => handleSelectFragrance(fragrance)}
+                    />
+                  ))}
+                </div>
+
+                {hasMore && (
+                  <div className="flex justify-center pt-8">
+                    <Button variant="outline" size="lg" onClick={loadMore} disabled={isLoadingMore}>
+                      {isLoadingMore ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Loading...
+                        </>
+                      ) : (
+                        "Load More Fragrances"
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </>
             )}
           </TabsContent>
 

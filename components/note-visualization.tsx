@@ -1,7 +1,7 @@
 "use client"
 
 import { cn } from "@/lib/utils"
-import type { Fragrance } from "@/lib/fragrance-data"
+import type { Fragrance } from "@/lib/types"
 
 interface NoteVisualizationProps {
   fragrance: Fragrance
@@ -40,11 +40,15 @@ export function NoteVisualization({ fragrance, variant = "pyramid" }: NoteVisual
               <span className="text-xs text-muted-foreground">{description}</span>
             </div>
             <div className="flex flex-wrap gap-2">
-              {fragrance.notes[key].map((note) => (
-                <span key={note} className={cn("rounded-full border px-3 py-1 text-sm font-medium", color)}>
-                  {note}
-                </span>
-              ))}
+              {fragrance.notes[key].length > 0 ? (
+                fragrance.notes[key].map((note) => (
+                  <span key={note} className={cn("rounded-full border px-3 py-1 text-sm font-medium", color)}>
+                    {note}
+                  </span>
+                ))
+              ) : (
+                <span className="text-sm text-muted-foreground">No notes listed</span>
+              )}
             </div>
           </div>
         ))}
@@ -70,11 +74,15 @@ export function NoteVisualization({ fragrance, variant = "pyramid" }: NoteVisual
               <span className="text-xs opacity-75">{description}</span>
             </div>
             <div className="flex flex-wrap gap-1.5">
-              {fragrance.notes[key].map((note) => (
-                <span key={note} className="rounded-md bg-white/50 px-2 py-0.5 text-sm font-medium">
-                  {note}
-                </span>
-              ))}
+              {fragrance.notes[key].length > 0 ? (
+                fragrance.notes[key].map((note) => (
+                  <span key={note} className="rounded-md bg-white/50 px-2 py-0.5 text-sm font-medium">
+                    {note}
+                  </span>
+                ))
+              ) : (
+                <span className="text-sm opacity-75">No notes listed</span>
+              )}
             </div>
           </div>
         ))}

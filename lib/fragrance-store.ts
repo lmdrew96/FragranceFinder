@@ -4,21 +4,21 @@ import { create } from "zustand"
 import { persist } from "zustand/middleware"
 
 interface FragranceStore {
-  favorites: string[]
-  comparisonList: string[]
-  recentlyViewed: string[]
+  favorites: number[]
+  comparisonList: number[]
+  recentlyViewed: number[]
 
-  addFavorite: (id: string) => void
-  removeFavorite: (id: string) => void
-  toggleFavorite: (id: string) => void
-  isFavorite: (id: string) => boolean
+  addFavorite: (id: number) => void
+  removeFavorite: (id: number) => void
+  toggleFavorite: (id: number) => void
+  isFavorite: (id: number) => boolean
 
-  addToComparison: (id: string) => void
-  removeFromComparison: (id: string) => void
+  addToComparison: (id: number) => void
+  removeFromComparison: (id: number) => void
   clearComparison: () => void
-  isInComparison: (id: string) => boolean
+  isInComparison: (id: number) => boolean
 
-  addToRecentlyViewed: (id: string) => void
+  addToRecentlyViewed: (id: number) => void
 }
 
 export const useFragranceStore = create<FragranceStore>()(
@@ -66,7 +66,7 @@ export const useFragranceStore = create<FragranceStore>()(
         }),
     }),
     {
-      name: "fragrance-storage",
+      name: "fragrance-storage-v2", // New key to avoid conflicts with old string-based storage
     },
   ),
 )

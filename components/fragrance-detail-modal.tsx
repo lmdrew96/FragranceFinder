@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
-import type { Fragrance } from "@/lib/fragrance-data"
+import type { Fragrance } from "@/lib/types"
 import { useFragranceStore } from "@/lib/fragrance-store"
 import { NoteVisualization } from "./note-visualization"
 
@@ -49,12 +49,10 @@ export function FragranceDetailModal({ fragrance, open, onOpenChange, onViewSimi
         <div className="grid gap-6 md:grid-cols-2">
           {/* Image Section */}
           <div className="relative">
-            <div className="aspect-[3/4] overflow-hidden rounded-lg bg-gradient-to-b from-muted/50 to-muted">
-              <img
-                src={fragrance.image || "/placeholder.svg"}
-                alt={fragrance.name}
-                className="h-full w-full object-cover"
-              />
+            <div className="flex aspect-[3/4] items-center justify-center overflow-hidden rounded-lg bg-gradient-to-b from-muted/50 to-muted">
+              <span className="font-serif text-8xl font-bold text-muted-foreground/20">
+                {fragrance.brand.charAt(0)}
+              </span>
             </div>
             <div className="absolute right-3 top-3 flex gap-2">
               <Button size="icon" variant="secondary" onClick={() => toggleFavorite(fragrance.id)}>
@@ -76,23 +74,25 @@ export function FragranceDetailModal({ fragrance, open, onOpenChange, onViewSimi
               <h2 className="font-serif text-3xl font-bold">{fragrance.name}</h2>
               <div className="mt-2 flex items-center gap-3">
                 <Badge className={cn(genderColors[fragrance.gender])}>{fragrance.gender}</Badge>
-                <Badge variant="outline">{fragrance.concentration}</Badge>
-                <Badge variant="outline">{fragrance.year}</Badge>
+                <Badge variant="outline">{fragrance.concentration ?? "N/A"}</Badge>
+                <Badge variant="outline">{fragrance.year ?? "N/A"}</Badge>
               </div>
             </div>
 
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-1">
                 <Star className="h-5 w-5 fill-amber-400 text-amber-400" />
-                <span className="text-xl font-bold">{fragrance.rating.toFixed(1)}</span>
+                <span className="text-xl font-bold">{fragrance.rating?.toFixed(1) ?? "N/A"}</span>
                 <span className="text-sm text-muted-foreground">
-                  ({fragrance.reviewCount.toLocaleString()} reviews)
+                  ({fragrance.reviewCount?.toLocaleString() ?? 0} reviews)
                 </span>
               </div>
               <span className="text-2xl font-bold text-primary">{fragrance.priceRange}</span>
             </div>
 
-            <p className="text-muted-foreground">{fragrance.description}</p>
+            {fragrance.description && (
+              <p className="text-muted-foreground">{fragrance.description}</p>
+            )}
 
             <Separator />
 
@@ -107,10 +107,10 @@ export function FragranceDetailModal({ fragrance, open, onOpenChange, onViewSimi
                   <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
                     <div
                       className="h-full rounded-full bg-blue-500 transition-all"
-                      style={{ width: `${fragrance.longevity * 10}%` }}
+                      style={{ width: `${(fragrance.longevity ?? 0) * 10}%` }}
                     />
                   </div>
-                  <span className="text-sm font-semibold">{fragrance.longevity}/10</span>
+                  <span className="text-sm font-semibold">{fragrance.longevity ?? "?"}/10</span>
                 </div>
               </div>
               <div className="space-y-2">
@@ -122,10 +122,10 @@ export function FragranceDetailModal({ fragrance, open, onOpenChange, onViewSimi
                   <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
                     <div
                       className="h-full rounded-full bg-teal-500 transition-all"
-                      style={{ width: `${fragrance.sillage * 10}%` }}
+                      style={{ width: `${(fragrance.sillage ?? 0) * 10}%` }}
                     />
                   </div>
-                  <span className="text-sm font-semibold">{fragrance.sillage}/10</span>
+                  <span className="text-sm font-semibold">{fragrance.sillage ?? "?"}/10</span>
                 </div>
               </div>
             </div>
@@ -143,7 +143,7 @@ export function FragranceDetailModal({ fragrance, open, onOpenChange, onViewSimi
                       key={season}
                       className={cn(
                         "rounded-full px-3 py-1 text-sm capitalize",
-                        fragrance.seasons.includes(season)
+                        fragrance.seasons?.includes(season)
                           ? "bg-primary text-primary-foreground"
                           : "bg-muted text-muted-foreground",
                       )}
@@ -153,47 +153,35 @@ export function FragranceDetailModal({ fragrance, open, onOpenChange, onViewSimi
                   ))}
                 </div>
               </div>
-              <div>
-                <h4 className="mb-2 flex items-center gap-2 text-sm font-medium">
-                  <Clock className="h-4 w-4" />
-                  Occasions
-                </h4>
-                <div className="flex flex-wrap gap-1.5">
-                  {fragrance.occasions.map((occasion) => (
-                    <Badge key={occasion} variant="secondary">
-                      {occasion}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            </div>
 
-            {/* Scent Family */}
-            <div className="rounded-lg bg-muted/50 p-4">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-primary" />
-                <span className="font-medium">Scent Family:</span>
-                <Badge variant="outline" className="text-base">
-                  {fragrance.scentFamily}
-                </Badge>
-              </div>
-              <div className="mt-2 flex gap-2">
-                {fragrance.subfamilies.map((sub) => (
-                  <Badge key={sub} variant="secondary" className="text-xs">
-                    {sub}
-                  </Badge>
-                ))}
-              </div>
+              {fragrance.occasions && fragrance.occasions.length > 0 && (
+                <div>
+                  <h4 className="mb-2 flex items-center gap-2 text-sm font-medium">
+                    <Clock className="h-4 w-4" />
+                    Best Occasions
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {fragrance.occasions.map((occasion) => (
+                      <Badge key={occasion} variant="outline">
+                        {occasion}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
         {/* Notes Section */}
-        <Separator className="my-4" />
+        <Separator className="my-6" />
 
-        <Tabs defaultValue="pyramid">
+        <Tabs defaultValue="pyramid" className="w-full">
           <TabsList className="mb-4">
-            <TabsTrigger value="pyramid">Note Pyramid</TabsTrigger>
+            <TabsTrigger value="pyramid">
+              <Sparkles className="mr-2 h-4 w-4" />
+              Note Pyramid
+            </TabsTrigger>
             <TabsTrigger value="linear">Linear View</TabsTrigger>
           </TabsList>
           <TabsContent value="pyramid">
@@ -206,25 +194,25 @@ export function FragranceDetailModal({ fragrance, open, onOpenChange, onViewSimi
 
         {/* Actions */}
         <div className="mt-6 flex gap-3">
-          <Button
-            className="flex-1"
-            onClick={() => {
-              onOpenChange(false)
-              onViewSimilar?.(fragrance)
-            }}
-          >
-            <Sparkles className="mr-2 h-4 w-4" />
-            Find Similar Fragrances
-          </Button>
-          <Button
-            variant="outline"
-            className="flex-1 bg-transparent"
-            onClick={() => addToComparison(fragrance.id)}
-            disabled={inComparison}
-          >
-            <Scale className="mr-2 h-4 w-4" />
-            {inComparison ? "Added to Compare" : "Add to Compare"}
-          </Button>
+          {fragrance.url && (
+            <Button asChild className="flex-1">
+              <a href={fragrance.url} target="_blank" rel="noopener noreferrer">
+                View on Fragrantica
+              </a>
+            </Button>
+          )}
+          {onViewSimilar && (
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => {
+                onViewSimilar(fragrance)
+                onOpenChange(false)
+              }}
+            >
+              Find Similar
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>
