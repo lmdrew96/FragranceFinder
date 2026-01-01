@@ -132,26 +132,26 @@ export function useFragrance(id: number | null) {
  * Fetch multiple fragrances by IDs (for favorites, comparison, etc.)
  */
 export function useFragrancesByIds(ids: number[]) {
-  // Fetch each fragrance individually and combine
-  // This is fine for small lists (favorites, comparison)
-  const results = ids.map((id) => {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    return useSWR<Fragrance>(`/api/fragrances/${id}`, fetcher, {
+  // Create a stable cache key from sorted IDs
+  const idsKey = ids.length > 0 ? ids.sort((a, b) => a - b).join(",") : null;
+  
+  const { data, error, isLoading } = useSWR<{ data: Fragrance[] }>(
+    idsKey ? `/api/fragrances?ids=${ids.join(",")}` : null,
+    fetcher,
+    {
       revalidateOnFocus: false,
-    });
-  });
+    }
+  );
 
-  const fragrances = results
-    .map((r) => r.data)
-    .filter((f): f is Fragrance => f !== undefined);
-
-  const isLoading = results.some((r) => r.isLoading);
-  const isError = results.some((r) => r.error);
+  // Maintain the original order of requested IDs
+  const fragrances = data?.data 
+    ? ids.map((id) => data.data.find((f) => f.id === id)).filter((f): f is Fragrance => f !== undefined)
+    : [];
 
   return {
     fragrances,
     isLoading,
-    isError,
+    isError: !!error,
   };
 }
 

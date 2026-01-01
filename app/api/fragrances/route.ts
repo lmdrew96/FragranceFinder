@@ -52,6 +52,58 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 100);
     const offset = parseInt(searchParams.get("offset") || "0");
 
+    // Batch fetch by IDs (for favorites, comparison, etc.)
+    const idsParam = searchParams.get("ids");
+    if (idsParam) {
+      const ids = idsParam.split(",").map((id) => parseInt(id, 10)).filter((id) => !isNaN(id));
+      
+      if (ids.length === 0) {
+        return NextResponse.json({ data: [] });
+      }
+
+      const fragranceResults = await db
+        .select()
+        .from(fragrances)
+        .where(inArray(fragrances.id, ids));
+
+      // Get notes for each fragrance
+      const notesResults = await db
+        .select({
+          fragranceId: fragranceNotes.fragranceId,
+          noteName: notes.name,
+          noteType: fragranceNotes.noteType,
+        })
+        .from(fragranceNotes)
+        .innerJoin(notes, eq(fragranceNotes.noteId, notes.id))
+        .where(inArray(fragranceNotes.fragranceId, ids));
+
+      // Group notes by fragrance
+      const notesByFragrance = new Map<
+        number,
+        { top: string[]; middle: string[]; base: string[] }
+      >();
+
+      for (const note of notesResults) {
+        if (!notesByFragrance.has(note.fragranceId)) {
+          notesByFragrance.set(note.fragranceId, { top: [], middle: [], base: [] });
+        }
+        const fragranceNoteMap = notesByFragrance.get(note.fragranceId)!;
+        fragranceNoteMap[note.noteType].push(note.noteName);
+      }
+
+      // Combine fragrances with notes, maintaining order of requested IDs
+      const fragranceMap = new Map(fragranceResults.map((f) => [f.id, f]));
+      const data: FragranceWithNotes[] = ids
+        .map((id) => fragranceMap.get(id))
+        .filter((f): f is typeof fragranceResults[0] => f !== undefined)
+        .map((f) => ({
+          ...f,
+          notes: notesByFragrance.get(f.id) || { top: [], middle: [], base: [] },
+        }));
+
+      return NextResponse.json({ data });
+    }
+
     // Filters
     const gender = searchParams.get("gender");
     const priceRange = searchParams.get("priceRange");
