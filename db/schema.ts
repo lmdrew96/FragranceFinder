@@ -18,6 +18,7 @@ import { relations } from "drizzle-orm";
 export const genderEnum = pgEnum("gender", ["masculine", "feminine", "unisex"]);
 export const priceRangeEnum = pgEnum("price_range", ["$", "$$", "$$$", "$$$$"]);
 export const noteTypeEnum = pgEnum("note_type", ["top", "middle", "base"]);
+export const sourceEnum = pgEnum("source", ["fragrantica", "parfumo", "both"]);
 
 // ============================================================================
 // Notes Table
@@ -68,6 +69,7 @@ export const fragrances = pgTable(
     country: text("country"),
     perfumer: text("perfumer"),
     accords: text("accords").array(),
+    source: sourceEnum("source").default("fragrantica").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
